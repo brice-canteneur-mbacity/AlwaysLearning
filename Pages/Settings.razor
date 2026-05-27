@@ -1,0 +1,61 @@
+@page "/parametres"
+@inject DailyService Daily
+
+<PageTitle>AlwaysLearning — paramètres</PageTitle>
+
+<section class="day-intro">
+    <p class="day-date">Personnalise tes tirages</p>
+    <h1 class="day-heading">Thématiques</h1>
+</section>
+
+@if (_loading)
+{
+    <div class="state"><div class="spinner"></div></div>
+}
+else
+{
+    <p class="muted settings-hint">
+        Choisis tes thèmes préférés : les nouveaux tirages piocheront en priorité dedans.
+        Sans sélection, les thèmes sont totalement au hasard.
+    </p>
+
+    <div class="chips">
+        @foreach (var theme in ThemeCatalog.All)
+        {
+            var selected = _selected.Contains(theme.Id);
+            <button class="chip @(selected ? "active" : null)" @onclick="() => ToggleAsync(theme.Id)">
+                <span class="chip-emoji">@theme.Emoji</span>
+                <span>@theme.Label</span>
+            </button>
+        }
+    </div>
+
+    @if (_selected.Count > 0)
+    {
+        <button class="btn btn-outline" @onclick="ClearAsync">Tout désélectionner</button>
+    }
+}
+
+@code {
+    private HashSet<string> _selected = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selected = (await Daily.GetPreferredThemeIdsAsync()).ToHashSet();
+        _loading = false;
+    }
+
+    private async Task ToggleAsync(string id)
+    {
+        if (!_selected.Add(id))
+            _selected.Remove(id);
+        await Daily.SetPreferredThemeIdsAsync(_selected);
+    }
+
+    private async Task ClearAsync()
+    {
+        _selected.Clear();
+        await Daily.SetPreferredThemeIdsAsync(_selected);
+    }
+}

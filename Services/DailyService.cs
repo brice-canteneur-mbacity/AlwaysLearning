@@ -13,6 +13,7 @@ public sealed class DailyService
 
     private const string ThemeKeyPrefix = "al:theme:";
     private const string HistoryKey = "al:history";
+    private const string PreferredThemesKey = "al:themes";
     private const string StreakKey = "al:streak";
     private const string LastOpenKey = "al:lastOpen";
     private const string FavoritesKey = "al:favorites";
@@ -41,7 +42,8 @@ public sealed class DailyService
 
     private async Task<Article?> FetchAndCacheAsync(DateOnly date, CancellationToken ct)
     {
-        var article = await _wiki.GetRandomArticleAsync(ct);
+        var queries = await GetThemeQueriesAsync();
+        var article = await _wiki.GetRandomArticleAsync(queries, ct);
         if (article is not null)
         {
             await SetItemAsync(ThemeKeyPrefix + Key(date), JsonSerializer.Serialize(article, WikipediaService.JsonOptions));
@@ -92,6 +94,37 @@ public sealed class DailyService
         if (history.Count > 60)
             history = history.Take(60).ToList();
         await SetItemAsync(HistoryKey, JsonSerializer.Serialize(history, WikipediaService.JsonOptions));
+    }
+
+    // --- Thématiques préférées ---
+
+    public async Task<List<string>> GetPreferredThemeIdsAsync()
+    {
+        var json = await GetItemAsync(PreferredThemesKey);
+        if (string.IsNullOrEmpty(json))
+            return new();
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, WikipediaService.JsonOptions) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    public async Task SetPreferredThemeIdsAsync(IEnumerable<string> ids)
+        => await SetItemAsync(PreferredThemesKey, JsonSerializer.Serialize(ids.ToList(), WikipediaService.JsonOptions));
+
+    private async Task<IReadOnlyList<string>?> GetThemeQueriesAsync()
+    {
+        var ids = await GetPreferredThemeIdsAsync();
+        var queries = ids
+            .Select(ThemeCatalog.ById)
+            .Where(t => t is not null)
+            .Select(t => t!.Query)
+            .ToList();
+        return queries.Count > 0 ? queries : null;
     }
 
     // --- Favoris ---

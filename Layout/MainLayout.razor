@@ -7,10 +7,13 @@
             <span class="brand-mark">📚</span>
             <span class="brand-name">AlwaysLearning</span>
         </a>
-        @if (_streak > 0)
-        {
-            <span class="streak" title="Jours consécutifs">🔥 @_streak</span>
-        }
+        <div class="header-right">
+            @if (_streak > 0)
+            {
+                <span class="streak" title="Jours consécutifs">🔥 @_streak</span>
+            }
+            <NavLink class="header-gear" href="parametres" title="Paramètres" aria-label="Paramètres">⚙️</NavLink>
+        </div>
     </header>
 
     <main class="app-main">

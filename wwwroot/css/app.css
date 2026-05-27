@@ -57,6 +57,7 @@ h1:focus { outline: none; }
 .brand-mark { font-size: 1.3rem; }
 .brand-name { letter-spacing: 0.2px; }
 
+.header-right { display: flex; align-items: center; gap: 12px; }
 .streak {
     background: linear-gradient(135deg, #ff8a3c, #ff5f6d);
     color: #fff;
@@ -65,6 +66,8 @@ h1:focus { outline: none; }
     padding: 5px 12px;
     border-radius: 999px;
 }
+.header-gear { font-size: 1.25rem; line-height: 1; text-decoration: none; }
+.header-gear.active { filter: drop-shadow(0 0 6px var(--accent)); }
 
 .app-main { padding: 16px; }
 
@@ -239,6 +242,30 @@ h1:focus { outline: none; }
 }
 .history-date { color: var(--accent-2); font-weight: 700; min-width: 56px; font-size: 0.85rem; }
 .history-title { font-weight: 600; }
+
+/* ---------- Settings ---------- */
+.settings-hint { margin: 0 0 18px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.chip.active {
+    color: #fff;
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(124,92,255,0.3), rgba(0,212,177,0.18));
+}
+.chip-emoji { font-size: 1.05rem; }
 
 /* ---------- States ---------- */
 .state { text-align: center; padding: 40px 16px; color: var(--muted); }
