@@ -15,6 +15,7 @@ public sealed class DailyService
     private const string HistoryKey = "al:history";
     private const string StreakKey = "al:streak";
     private const string LastOpenKey = "al:lastOpen";
+    private const string FavoritesKey = "al:favorites";
 
     public DailyService(WikipediaService wiki, IJSRuntime js)
     {
@@ -90,6 +91,49 @@ public sealed class DailyService
         if (history.Count > 60)
             history = history.Take(60).ToList();
         await SetItemAsync(HistoryKey, JsonSerializer.Serialize(history, WikipediaService.JsonOptions));
+    }
+
+    // --- Favoris ---
+
+    public async Task<List<SavedArticle>> GetFavoritesAsync()
+    {
+        var json = await GetItemAsync(FavoritesKey);
+        if (string.IsNullOrEmpty(json))
+            return new();
+        try
+        {
+            return JsonSerializer.Deserialize<List<SavedArticle>>(json, WikipediaService.JsonOptions) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    public async Task<bool> IsFavoriteAsync(string key)
+    {
+        var favorites = await GetFavoritesAsync();
+        return favorites.Any(f => f.Key == key);
+    }
+
+    // Ajoute ou retire le favori et renvoie son nouvel état (true = désormais en favori).
+    public async Task<bool> ToggleFavoriteAsync(SavedArticle article)
+    {
+        var favorites = await GetFavoritesAsync();
+        var existing = favorites.FirstOrDefault(f => f.Key == article.Key);
+        bool isFavorite;
+        if (existing is not null)
+        {
+            favorites.Remove(existing);
+            isFavorite = false;
+        }
+        else
+        {
+            favorites.Insert(0, article);
+            isFavorite = true;
+        }
+        await SetItemAsync(FavoritesKey, JsonSerializer.Serialize(favorites, WikipediaService.JsonOptions));
+        return isFavorite;
     }
 
     // --- Série de jours consécutifs ---

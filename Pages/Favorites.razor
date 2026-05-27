@@ -1,0 +1,47 @@
+@page "/favoris"
+@inject DailyService Daily
+
+<PageTitle>AlwaysLearning — favoris</PageTitle>
+
+<section class="day-intro">
+    <p class="day-date">Tes articles sauvegardés</p>
+    <h1 class="day-heading">Favoris</h1>
+</section>
+
+@if (_loading)
+{
+    <div class="state"><div class="spinner"></div></div>
+}
+else if (_favorites.Count == 0)
+{
+    <div class="state">
+        <p>♡ Aucun favori pour l'instant.</p>
+        <p class="muted">Touche le cœur sur un article pour le retrouver ici.</p>
+    </div>
+}
+else
+{
+    @foreach (var f in _favorites)
+    {
+        <ArticleCard Title="@f.Title"
+                     Description="@f.Description"
+                     Extract="@f.Extract"
+                     Url="@f.Url"
+                     ImageUrl="@f.Thumbnail"
+                     Compact="true"
+                     OnFavoriteChanged="ReloadAsync" />
+    }
+}
+
+@code {
+    private List<SavedArticle> _favorites = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _favorites = await Daily.GetFavoritesAsync();
+        _loading = false;
+    }
+}
