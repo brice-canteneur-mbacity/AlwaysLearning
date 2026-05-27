@@ -11,7 +11,7 @@ public sealed class DailyService
     private readonly WikipediaService _wiki;
     private readonly IJSRuntime _js;
 
-    private const string FeedKeyPrefix = "al:feed:";
+    private const string ThemeKeyPrefix = "al:theme:";
     private const string HistoryKey = "al:history";
     private const string StreakKey = "al:streak";
     private const string LastOpenKey = "al:lastOpen";
@@ -25,42 +25,44 @@ public sealed class DailyService
 
     public static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
-    // Renvoie le contenu du jour : depuis le cache si déjà chargé aujourd'hui,
-    // sinon depuis Wikipédia (puis mis en cache pour la journée).
-    public async Task<FeaturedFeed?> GetDayAsync(DateOnly date, CancellationToken ct = default)
+    // Thème du jour : article aléatoire mis en cache, stable pour la journée.
+    public async Task<Article?> GetThemeAsync(DateOnly date, CancellationToken ct = default)
     {
-        var cached = await GetCachedFeedAsync(date);
+        var cached = await GetCachedThemeAsync(date);
         if (cached is not null)
             return cached;
 
-        var feed = await _wiki.GetFeaturedAsync(date, ct);
-        if (feed is not null)
-        {
-            await CacheFeedAsync(date, feed);
-            await AddToHistoryAsync(date, feed.FeaturedArticle?.DisplayTitle);
-        }
-        return feed;
+        return await FetchAndCacheAsync(date, ct);
     }
 
-    private async Task<FeaturedFeed?> GetCachedFeedAsync(DateOnly date)
+    // Tire un nouveau thème au hasard et remplace celui en cache pour aujourd'hui.
+    public async Task<Article?> RerollThemeAsync(DateOnly date, CancellationToken ct = default)
+        => await FetchAndCacheAsync(date, ct);
+
+    private async Task<Article?> FetchAndCacheAsync(DateOnly date, CancellationToken ct)
     {
-        var json = await GetItemAsync(FeedKeyPrefix + Key(date));
+        var article = await _wiki.GetRandomArticleAsync(ct);
+        if (article is not null)
+        {
+            await SetItemAsync(ThemeKeyPrefix + Key(date), JsonSerializer.Serialize(article, WikipediaService.JsonOptions));
+            await AddToHistoryAsync(date, article.Title);
+        }
+        return article;
+    }
+
+    private async Task<Article?> GetCachedThemeAsync(DateOnly date)
+    {
+        var json = await GetItemAsync(ThemeKeyPrefix + Key(date));
         if (string.IsNullOrEmpty(json))
             return null;
         try
         {
-            return JsonSerializer.Deserialize<FeaturedFeed>(json, WikipediaService.JsonOptions);
+            return JsonSerializer.Deserialize<Article>(json, WikipediaService.JsonOptions);
         }
         catch
         {
             return null;
         }
-    }
-
-    private async Task CacheFeedAsync(DateOnly date, FeaturedFeed feed)
-    {
-        var json = JsonSerializer.Serialize(feed, WikipediaService.JsonOptions);
-        await SetItemAsync(FeedKeyPrefix + Key(date), json);
     }
 
     // --- Historique ---
@@ -85,8 +87,7 @@ public sealed class DailyService
     {
         var history = await GetHistoryAsync();
         var key = Key(date);
-        if (history.Any(h => h.Date == key))
-            return;
+        history.RemoveAll(h => h.Date == key);
         history.Insert(0, new HistoryEntry { Date = key, Title = title ?? "Sujet du jour" });
         if (history.Count > 60)
             history = history.Take(60).ToList();

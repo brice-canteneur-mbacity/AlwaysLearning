@@ -1,14 +1,14 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AlwaysLearning.Models;
 
 namespace AlwaysLearning.Services;
 
-// Accès en lecture à l'API REST publique de Wikipédia en français.
-// Toutes les requêtes partent du navigateur de l'utilisateur (CORS autorisé).
+// Accès en lecture à l'API MediaWiki de Wikipédia en français (CORS via origin=*).
 public sealed class WikipediaService
 {
-    private const string RestBase = "https://fr.wikipedia.org/api/rest_v1";
+    private const string ApiBase = "https://fr.wikipedia.org/w/api.php";
     private readonly HttpClient _http;
 
     public static readonly JsonSerializerOptions JsonOptions = new()
@@ -18,17 +18,61 @@ public sealed class WikipediaService
 
     public WikipediaService(HttpClient http) => _http = http;
 
-    // Sélection éditoriale du jour : article à la une, image du jour, éphéméride.
-    public async Task<FeaturedFeed?> GetFeaturedAsync(DateOnly date, CancellationToken ct = default)
+    // Pioche quelques articles au hasard et renvoie le plus fourni (évite les ébauches).
+    public async Task<Article?> GetRandomArticleAsync(CancellationToken ct = default)
     {
-        var url = $"{RestBase}/feed/featured/{date.Year:0000}/{date.Month:00}/{date.Day:00}";
-        return await _http.GetFromJsonAsync<FeaturedFeed>(url, JsonOptions, ct);
+        var url = ApiBase
+            + "?action=query&format=json&origin=*"
+            + "&generator=random&grnnamespace=0&grnlimit=4"
+            + "&prop=extracts|pageimages|info|description"
+            + "&explaintext=1&exsectionformat=wiki&exlimit=max"
+            + "&inprop=url&piprop=thumbnail|original&pithumbsize=800";
+
+        var response = await _http.GetFromJsonAsync<ActionResponse>(url, JsonOptions, ct);
+        var pages = response?.Query?.Pages?.Values;
+        if (pages is null)
+            return null;
+
+        var best = pages
+            .Where(p => !string.IsNullOrWhiteSpace(p.Title) && !string.IsNullOrWhiteSpace(p.Extract))
+            .OrderByDescending(p => p.Extract!.Length)
+            .FirstOrDefault();
+
+        if (best is null)
+            return null;
+
+        return new Article
+        {
+            Title = best.Title!,
+            Description = best.Description,
+            Url = best.FullUrl,
+            ImageUrl = best.Original?.Source ?? best.Thumbnail?.Source,
+            FullText = best.Extract!,
+        };
     }
 
-    // Un article totalement aléatoire, pour le bouton « Découvrir un autre sujet ».
-    public async Task<WikiArticle?> GetRandomAsync(CancellationToken ct = default)
+    private sealed class ActionResponse
     {
-        var url = $"{RestBase}/page/random/summary";
-        return await _http.GetFromJsonAsync<WikiArticle>(url, JsonOptions, ct);
+        [JsonPropertyName("query")] public ActionQuery? Query { get; set; }
+    }
+
+    private sealed class ActionQuery
+    {
+        [JsonPropertyName("pages")] public Dictionary<string, ActionPage>? Pages { get; set; }
+    }
+
+    private sealed class ActionPage
+    {
+        [JsonPropertyName("title")] public string? Title { get; set; }
+        [JsonPropertyName("extract")] public string? Extract { get; set; }
+        [JsonPropertyName("description")] public string? Description { get; set; }
+        [JsonPropertyName("fullurl")] public string? FullUrl { get; set; }
+        [JsonPropertyName("thumbnail")] public ImageInfo? Thumbnail { get; set; }
+        [JsonPropertyName("original")] public ImageInfo? Original { get; set; }
+    }
+
+    private sealed class ImageInfo
+    {
+        [JsonPropertyName("source")] public string? Source { get; set; }
     }
 }
