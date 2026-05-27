@@ -1,0 +1,39 @@
+@inherits LayoutComponentBase
+@inject DailyService Daily
+
+<div class="app-shell">
+    <header class="app-header">
+        <a href="" class="brand">
+            <span class="brand-mark">📚</span>
+            <span class="brand-name">AlwaysLearning</span>
+        </a>
+        @if (_streak > 0)
+        {
+            <span class="streak" title="Jours consécutifs">🔥 @_streak</span>
+        }
+    </header>
+
+    <main class="app-main">
+        @Body
+    </main>
+
+    <nav class="app-nav">
+        <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+            <span class="nav-icon">🗓️</span>
+            <span class="nav-label">Aujourd'hui</span>
+        </NavLink>
+        <NavLink class="nav-item" href="historique">
+            <span class="nav-icon">🕘</span>
+            <span class="nav-label">Historique</span>
+        </NavLink>
+    </nav>
+</div>
+
+@code {
+    private int _streak;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _streak = await Daily.RegisterVisitAsync();
+    }
+}

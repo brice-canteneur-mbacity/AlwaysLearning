@@ -1,0 +1,51 @@
+@page "/historique"
+@inject DailyService Daily
+
+<PageTitle>AlwaysLearning — historique</PageTitle>
+
+<section class="day-intro">
+    <p class="day-date">Tes découvertes</p>
+    <h1 class="day-heading">Historique</h1>
+</section>
+
+@if (_loading)
+{
+    <div class="state"><div class="spinner"></div></div>
+}
+else if (_history.Count == 0)
+{
+    <div class="state">
+        <p>🌱 Rien encore !</p>
+        <p class="muted">Reviens chaque jour : tes sujets s'accumuleront ici.</p>
+    </div>
+}
+else
+{
+    <ul class="history">
+        @foreach (var h in _history)
+        {
+            <li class="history-item">
+                <span class="history-date">@FormatDate(h.Date)</span>
+                <span class="history-title">@h.Title</span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<HistoryEntry> _history = new();
+    private bool _loading = true;
+
+    private static readonly string[] Months =
+        { "", "janv.", "févr.", "mars", "avr.", "mai", "juin",
+          "juil.", "août", "sept.", "oct.", "nov.", "déc." };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _history = await Daily.GetHistoryAsync();
+        _loading = false;
+    }
+
+    private static string FormatDate(string iso)
+        => DateOnly.TryParse(iso, out var d) ? $"{d.Day} {Months[d.Month]}" : iso;
+}

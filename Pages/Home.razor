@@ -1,0 +1,185 @@
+@page "/"
+@inject DailyService Daily
+@inject WikipediaService Wiki
+
+<PageTitle>AlwaysLearning — le sujet du jour</PageTitle>
+
+<section class="day-intro">
+    <p class="day-date">@_dateLabel</p>
+    <h1 class="day-heading">Le sujet du jour</h1>
+</section>
+
+@if (_loading)
+{
+    <div class="state">
+        <div class="spinner"></div>
+        <p>Chargement du sujet du jour…</p>
+    </div>
+}
+else if (_error)
+{
+    <div class="state state-error">
+        <p>😕 Impossible de récupérer le contenu.</p>
+        <p class="muted">Vérifie ta connexion internet puis réessaie.</p>
+        <button class="btn" @onclick="LoadAsync">Réessayer</button>
+    </div>
+}
+else if (_feed is not null)
+{
+    @if (_feed.FeaturedArticle is { } tfa)
+    {
+        <article class="card">
+            @if (tfa.Thumbnail?.Source is { } img)
+            {
+                <img class="card-img" src="@img" alt="@tfa.DisplayTitle" loading="lazy" />
+            }
+            <div class="card-body">
+                <h2 class="card-title">@tfa.DisplayTitle</h2>
+                @if (!string.IsNullOrWhiteSpace(tfa.Description))
+                {
+                    <p class="card-subtitle">@CapitalizeFirst(tfa.Description!)</p>
+                }
+                <p class="card-text">@tfa.Extract</p>
+                @if (tfa.PageUrl is { } url)
+                {
+                    <a class="btn" href="@url" target="_blank" rel="noopener">Lire l'article complet ↗</a>
+                }
+            </div>
+        </article>
+    }
+
+    @if (_feed.OnThisDay is { Count: > 0 } events)
+    {
+        <section class="block">
+            <h3 class="block-title">🕰️ Ça s'est passé un @_dayMonthLabel</h3>
+            <ul class="events">
+                @foreach (var e in events.Take(5))
+                {
+                    <li class="event">
+                        <span class="event-year">@e.Year</span>
+                        <span class="event-text">@e.Text</span>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (_feed.Image is { } pic && (pic.Thumbnail?.Source ?? pic.Image?.Source) is { } picSrc)
+    {
+        <section class="block">
+            <h3 class="block-title">🖼️ L'image du jour</h3>
+            <figure class="figure">
+                <img class="figure-img" src="@picSrc" alt="Image du jour" loading="lazy" />
+                @if (pic.Description?.Text is { } cap)
+                {
+                    <figcaption class="figure-cap">@StripHtml(cap)</figcaption>
+                }
+            </figure>
+        </section>
+    }
+}
+
+@if (!_loading)
+{
+    <section class="block extra">
+        <h3 class="block-title">✨ Envie d'en savoir plus ?</h3>
+        @if (_randomLoading)
+        {
+            <div class="state"><div class="spinner"></div></div>
+        }
+        else if (_random is not null)
+        {
+            <article class="card card-compact">
+                @if (_random.Thumbnail?.Source is { } rimg)
+                {
+                    <img class="card-img" src="@rimg" alt="@_random.DisplayTitle" loading="lazy" />
+                }
+                <div class="card-body">
+                    <h2 class="card-title">@_random.DisplayTitle</h2>
+                    @if (!string.IsNullOrWhiteSpace(_random.Description))
+                    {
+                        <p class="card-subtitle">@CapitalizeFirst(_random.Description!)</p>
+                    }
+                    <p class="card-text">@_random.Extract</p>
+                    @if (_random.PageUrl is { } rurl)
+                    {
+                        <a class="btn" href="@rurl" target="_blank" rel="noopener">Lire l'article complet ↗</a>
+                    }
+                </div>
+            </article>
+        }
+        <button class="btn btn-outline" @onclick="LoadRandomAsync" disabled="@_randomLoading">
+            🎲 Découvrir un sujet au hasard
+        </button>
+    </section>
+}
+
+@code {
+    private FeaturedFeed? _feed;
+    private WikiArticle? _random;
+    private bool _loading = true;
+    private bool _error;
+    private bool _randomLoading;
+
+    private readonly DateOnly _today = DailyService.Today;
+    private string _dateLabel = "";
+    private string _dayMonthLabel = "";
+
+    private static readonly string[] Days =
+        { "dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi" };
+    private static readonly string[] Months =
+        { "", "janvier", "février", "mars", "avril", "mai", "juin",
+          "juillet", "août", "septembre", "octobre", "novembre", "décembre" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var dt = _today.ToDateTime(TimeOnly.MinValue);
+        _dateLabel = $"{Days[(int)dt.DayOfWeek]} {_today.Day} {Months[_today.Month]} {_today.Year}";
+        _dayMonthLabel = $"{_today.Day} {Months[_today.Month]}";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = false;
+        StateHasChanged();
+        try
+        {
+            _feed = await Daily.GetDayAsync(_today);
+            _error = _feed is null;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadRandomAsync()
+    {
+        _randomLoading = true;
+        StateHasChanged();
+        try
+        {
+            _random = await Wiki.GetRandomAsync();
+        }
+        catch
+        {
+            // On laisse l'article précédent affiché en cas d'échec.
+        }
+        finally
+        {
+            _randomLoading = false;
+        }
+    }
+
+    private static string CapitalizeFirst(string s)
+        => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+
+    private static string StripHtml(string s)
+        => System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty);
+}
