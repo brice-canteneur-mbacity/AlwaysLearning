@@ -28,24 +28,11 @@ else if (_feed is not null)
 {
     @if (_feed.FeaturedArticle is { } tfa)
     {
-        <article class="card">
-            @if (tfa.Thumbnail?.Source is { } img)
-            {
-                <img class="card-img" src="@img" alt="@tfa.DisplayTitle" loading="lazy" />
-            }
-            <div class="card-body">
-                <h2 class="card-title">@tfa.DisplayTitle</h2>
-                @if (!string.IsNullOrWhiteSpace(tfa.Description))
-                {
-                    <p class="card-subtitle">@CapitalizeFirst(tfa.Description!)</p>
-                }
-                <p class="card-text">@tfa.Extract</p>
-                @if (tfa.PageUrl is { } url)
-                {
-                    <a class="btn" href="@url" target="_blank" rel="noopener">Lire l'article complet ↗</a>
-                }
-            </div>
-        </article>
+        <ArticleCard Title="@tfa.DisplayTitle"
+                     Description="@tfa.Description"
+                     Extract="@tfa.Extract"
+                     Url="@tfa.PageUrl"
+                     ImageUrl="@tfa.Thumbnail?.Source" />
     }
 
     @if (_feed.OnThisDay is { Count: > 0 } events)
@@ -89,24 +76,12 @@ else if (_feed is not null)
         }
         else if (_random is not null)
         {
-            <article class="card card-compact">
-                @if (_random.Thumbnail?.Source is { } rimg)
-                {
-                    <img class="card-img" src="@rimg" alt="@_random.DisplayTitle" loading="lazy" />
-                }
-                <div class="card-body">
-                    <h2 class="card-title">@_random.DisplayTitle</h2>
-                    @if (!string.IsNullOrWhiteSpace(_random.Description))
-                    {
-                        <p class="card-subtitle">@CapitalizeFirst(_random.Description!)</p>
-                    }
-                    <p class="card-text">@_random.Extract</p>
-                    @if (_random.PageUrl is { } rurl)
-                    {
-                        <a class="btn" href="@rurl" target="_blank" rel="noopener">Lire l'article complet ↗</a>
-                    }
-                </div>
-            </article>
+            <ArticleCard Title="@_random.DisplayTitle"
+                         Description="@_random.Description"
+                         Extract="@_random.Extract"
+                         Url="@_random.PageUrl"
+                         ImageUrl="@_random.Thumbnail?.Source"
+                         Compact="true" />
         }
         <button class="btn btn-outline" @onclick="LoadRandomAsync" disabled="@_randomLoading">
             🎲 Découvrir un sujet au hasard
@@ -176,9 +151,6 @@ else if (_feed is not null)
             _randomLoading = false;
         }
     }
-
-    private static string CapitalizeFirst(string s)
-        => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
 
     private static string StripHtml(string s)
         => System.Text.RegularExpressions.Regex.Replace(s, "<.*?>", string.Empty);
