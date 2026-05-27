@@ -1,0 +1,69 @@
+@inject DailyService Daily
+@inject IJSRuntime JS
+
+<div class="card-actions">
+    @if (!string.IsNullOrEmpty(Url))
+    {
+        <a class="btn btn-sm" href="@Url" target="_blank" rel="noopener">Wikipédia ↗</a>
+    }
+    <button class="icon-btn @(_isFavorite ? "active" : null)"
+            @onclick="ToggleFavoriteAsync"
+            aria-label="@(_isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")"
+            title="@(_isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")">
+        @(_isFavorite ? "♥" : "♡")
+    </button>
+    <button class="icon-btn" @onclick="ShareAsync" aria-label="Partager" title="Partager">↗</button>
+    @if (_toast is not null)
+    {
+        <span class="toast">@_toast</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Extract { get; set; }
+    [Parameter] public string? Url { get; set; }
+    [Parameter] public string? ImageUrl { get; set; }
+    [Parameter] public EventCallback<bool> OnFavoriteChanged { get; set; }
+
+    private bool _isFavorite;
+    private string? _toast;
+
+    private string FavKey => string.IsNullOrEmpty(Url) ? Title : Url!;
+
+    protected override async Task OnParametersSetAsync()
+        => _isFavorite = await Daily.IsFavoriteAsync(FavKey);
+
+    private async Task ToggleFavoriteAsync()
+    {
+        var saved = new SavedArticle
+        {
+            Title = Title,
+            Description = Description,
+            Extract = Extract,
+            Url = Url,
+            Thumbnail = ImageUrl,
+        };
+        _isFavorite = await Daily.ToggleFavoriteAsync(saved);
+        await OnFavoriteChanged.InvokeAsync(_isFavorite);
+    }
+
+    private async Task ShareAsync()
+    {
+        if (string.IsNullOrEmpty(Url))
+            return;
+        var result = await JS.InvokeAsync<string>("alShare", Title, Url);
+        if (result == "copied")
+            await FlashAsync("Lien copié !");
+    }
+
+    private async Task FlashAsync(string message)
+    {
+        _toast = message;
+        StateHasChanged();
+        await Task.Delay(1800);
+        _toast = null;
+        StateHasChanged();
+    }
+}

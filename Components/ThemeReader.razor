@@ -1,0 +1,87 @@
+@using System.Text.RegularExpressions
+
+<article class="theme">
+    @if (!string.IsNullOrEmpty(Article.ImageUrl))
+    {
+        <img class="theme-img" src="@Article.ImageUrl" alt="@Article.Title" loading="lazy" />
+    }
+    <div class="theme-body">
+        <h2 class="theme-title">@Article.Title</h2>
+        @if (!string.IsNullOrWhiteSpace(Article.Description))
+        {
+            <p class="card-subtitle">@CapitalizeFirst(Article.Description!)</p>
+        }
+
+        <ArticleActions Title="@Article.Title" Description="@Article.Description"
+                        Extract="@_teaser" Url="@Article.Url" ImageUrl="@Article.ImageUrl" />
+
+        <div class="tabs" role="tablist">
+            @for (var i = 0; i < _levels.Count; i++)
+            {
+                var index = i;
+                var level = _levels[i];
+                <button class="tab @(index == _selected ? "active" : null)"
+                        role="tab"
+                        @onclick="() => _selected = index">
+                    <span class="tab-label">@level.Label</span>
+                    <span class="tab-time">~@level.Minutes min</span>
+                </button>
+            }
+        </div>
+
+        <div class="reader">
+            @foreach (var block in Blocks(_levels[_selected].Text))
+            {
+                @if (block.IsHeading)
+                {
+                    <h3 class="reader-h">@block.Text</h3>
+                }
+                else
+                {
+                    <p class="reader-p">@block.Text</p>
+                }
+            }
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public Article Article { get; set; } = default!;
+
+    private IReadOnlyList<ReadingLevel> _levels = Array.Empty<ReadingLevel>();
+    private int _selected;
+    private string _teaser = "";
+
+    private static readonly Regex HeadingRegex = new(@"^=+\s*(.+?)\s*=+$", RegexOptions.Compiled);
+
+    protected override void OnParametersSet()
+    {
+        _levels = ReadingLevels.Build(Article.FullText);
+        if (_selected >= _levels.Count)
+            _selected = 0;
+        _teaser = BuildTeaser(Article.FullText);
+    }
+
+    private static string BuildTeaser(string text)
+    {
+        var firstParagraph = Regex.Split(text.Trim(), @"\n{2,}").FirstOrDefault(p => p.Trim().Length > 0)?.Trim() ?? "";
+        return firstParagraph.Length <= 220 ? firstParagraph : firstParagraph[..220].TrimEnd() + "…";
+    }
+
+    private record Block(string Text, bool IsHeading);
+
+    private static IEnumerable<Block> Blocks(string text)
+    {
+        foreach (var raw in Regex.Split(text, @"\n{2,}"))
+        {
+            var p = raw.Trim();
+            if (p.Length == 0)
+                continue;
+            var m = HeadingRegex.Match(p);
+            yield return m.Success ? new Block(m.Groups[1].Value, true) : new Block(p, false);
+        }
+    }
+
+    private static string CapitalizeFirst(string s)
+        => string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..];
+}
