@@ -4,8 +4,8 @@
 <PageTitle>AlwaysLearning — paramètres</PageTitle>
 
 <section class="day-intro">
-    <p class="day-date">Personnalise tes tirages</p>
-    <h1 class="day-heading">Thématiques</h1>
+    <p class="day-date">Personnalise ton expérience</p>
+    <h1 class="day-heading">Paramètres</h1>
 </section>
 
 @if (_loading)
@@ -14,46 +14,104 @@
 }
 else
 {
+    <h2 class="settings-title">Apparence</h2>
+    <div class="chips">
+        @foreach (var opt in Appearances)
+        {
+            <button class="chip @(_appearance == opt.Value ? "active" : null)"
+                    @onclick="() => SetAppearanceAsync(opt.Value)">
+                <span class="chip-emoji">@opt.Emoji</span>
+                <span>@opt.Label</span>
+            </button>
+        }
+    </div>
+
+    <h2 class="settings-title">Accessibilité</h2>
     <p class="muted settings-hint">
-        Choisis tes thèmes préférés : les nouveaux tirages piocheront en priorité dedans.
+        Le mode daltonisme remplace les rouges et verts ambigus par un bleu et un orange
+        distinguables pour les protans/deutans (forme de daltonisme la plus courante).
+    </p>
+    <div class="chips">
+        @foreach (var opt in Palettes)
+        {
+            <button class="chip @(_palette == opt.Value ? "active" : null)"
+                    @onclick="() => SetPaletteAsync(opt.Value)">
+                <span class="chip-emoji">@opt.Emoji</span>
+                <span>@opt.Label</span>
+            </button>
+        }
+    </div>
+
+    <h2 class="settings-title">Thématiques préférées</h2>
+    <p class="muted settings-hint">
+        Sélectionne tes thèmes : les nouveaux tirages piocheront en priorité dedans.
         Sans sélection, les thèmes sont totalement au hasard.
     </p>
-
     <div class="chips">
         @foreach (var theme in ThemeCatalog.All)
         {
             var selected = _selected.Contains(theme.Id);
-            <button class="chip @(selected ? "active" : null)" @onclick="() => ToggleAsync(theme.Id)">
+            <button class="chip @(selected ? "active" : null)" @onclick="() => ToggleThemeAsync(theme.Id)">
                 <span class="chip-emoji">@theme.Emoji</span>
                 <span>@theme.Label</span>
             </button>
         }
     </div>
-
     @if (_selected.Count > 0)
     {
-        <button class="btn btn-outline" @onclick="ClearAsync">Tout désélectionner</button>
+        <button class="btn btn-outline" @onclick="ClearThemesAsync">Tout désélectionner</button>
     }
 }
 
 @code {
     private HashSet<string> _selected = new();
+    private string _appearance = "auto";
+    private string _palette = "standard";
     private bool _loading = true;
+
+    private record Option(string Value, string Label, string Emoji);
+
+    private static readonly Option[] Appearances =
+    {
+        new("auto",  "Système", "🖥️"),
+        new("light", "Clair",   "☀️"),
+        new("dark",  "Sombre",  "🌙"),
+    };
+
+    private static readonly Option[] Palettes =
+    {
+        new("standard", "Standard",  "🎨"),
+        new("cb",       "Daltonisme", "👁️"),
+    };
 
     protected override async Task OnInitializedAsync()
     {
         _selected = (await Daily.GetPreferredThemeIdsAsync()).ToHashSet();
+        _appearance = await Daily.GetAppearanceAsync();
+        _palette = await Daily.GetPaletteAsync();
         _loading = false;
     }
 
-    private async Task ToggleAsync(string id)
+    private async Task SetAppearanceAsync(string mode)
+    {
+        _appearance = mode;
+        await Daily.SetAppearanceAsync(mode);
+    }
+
+    private async Task SetPaletteAsync(string palette)
+    {
+        _palette = palette;
+        await Daily.SetPaletteAsync(palette);
+    }
+
+    private async Task ToggleThemeAsync(string id)
     {
         if (!_selected.Add(id))
             _selected.Remove(id);
         await Daily.SetPreferredThemeIdsAsync(_selected);
     }
 
-    private async Task ClearAsync()
+    private async Task ClearThemesAsync()
     {
         _selected.Clear();
         await Daily.SetPreferredThemeIdsAsync(_selected);

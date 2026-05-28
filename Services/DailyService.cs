@@ -14,6 +14,8 @@ public sealed class DailyService
     private const string ThemeKeyPrefix = "al:theme:";
     private const string HistoryKey = "al:history";
     private const string PreferredThemesKey = "al:themes";
+    private const string AppearanceKey = "al:appearance";
+    private const string PaletteKey = "al:palette";
     private const string StreakKey = "al:streak";
     private const string LastOpenKey = "al:lastOpen";
     private const string FavoritesKey = "al:favorites";
@@ -94,6 +96,26 @@ public sealed class DailyService
         if (history.Count > 60)
             history = history.Take(60).ToList();
         await SetItemAsync(HistoryKey, JsonSerializer.Serialize(history, WikipediaService.JsonOptions));
+    }
+
+    // --- Apparence et palette ---
+
+    public async Task<string> GetAppearanceAsync()
+        => await GetItemAsync(AppearanceKey) ?? "auto";
+
+    public async Task SetAppearanceAsync(string mode)
+    {
+        await SetItemAsync(AppearanceKey, mode);
+        await _js.InvokeVoidAsync("alApplyAppearance", mode);
+    }
+
+    public async Task<string> GetPaletteAsync()
+        => await GetItemAsync(PaletteKey) ?? "standard";
+
+    public async Task SetPaletteAsync(string palette)
+    {
+        await SetItemAsync(PaletteKey, palette);
+        await _js.InvokeVoidAsync("alApplyPalette", palette);
     }
 
     // --- Thématiques préférées ---
