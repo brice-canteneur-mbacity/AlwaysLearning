@@ -20,7 +20,7 @@
             {
                 var index = i;
                 var panel = _panels[i];
-                var open = _open.Contains(index);
+                var open = _openIndex == index;
                 <button class="strip-btn @(open ? "active" : null)"
                         @onclick="() => Toggle(index)"
                         aria-pressed="@(open ? "true" : "false")">
@@ -32,14 +32,10 @@
         </div>
 
         <div class="panel-contents">
-            @for (var i = 0; i < _panels.Count; i++)
+            @if (_openIndex >= 0 && _openIndex < _panels.Count)
             {
-                var index = i;
-                var panel = _panels[i];
-                if (!_open.Contains(index))
-                    continue;
+                var panel = _panels[_openIndex];
                 <section class="panel-content">
-                    <h3 class="panel-section">@panel.Label</h3>
                     @foreach (var block in Blocks(panel.Text))
                     {
                         @if (block.IsHeading)
@@ -53,7 +49,7 @@
                     }
                 </section>
             }
-            @if (_open.Count == 0)
+            else
             {
                 <p class="muted panel-empty">Touche un volet ci-dessus pour le déplier.</p>
             }
@@ -65,7 +61,7 @@
     [Parameter, EditorRequired] public Article Article { get; set; } = default!;
 
     private IReadOnlyList<ReadingLevel> _panels = Array.Empty<ReadingLevel>();
-    private readonly HashSet<int> _open = new() { 0 };
+    private int _openIndex; // 0 = Court ouvert par défaut, -1 = tous fermés.
     private string _teaser = "";
 
     private static readonly Regex HeadingRegex = new(@"^=+\s*(.+?)\s*=+$", RegexOptions.Compiled);
@@ -76,11 +72,9 @@
         _teaser = BuildTeaser(Article.FullText);
     }
 
+    // Un seul volet ouvert à la fois : retaper le volet actif le referme.
     private void Toggle(int index)
-    {
-        if (!_open.Add(index))
-            _open.Remove(index);
-    }
+        => _openIndex = (_openIndex == index) ? -1 : index;
 
     private static string BuildTeaser(string text)
     {
