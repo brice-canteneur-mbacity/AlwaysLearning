@@ -6,7 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>AlwaysLearning</title>
     <base href="/" />
-    <meta name="theme-color" content="#0f1226" />
+    <meta name="theme-color" content="#0f1226" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f6fb" media="(prefers-color-scheme: light)" />
+    <script>
+        // Applique apparence et palette AVANT le rendu pour éviter tout flash.
+        (function () {
+            try {
+                var root = document.documentElement;
+                var appearance = localStorage.getItem('al:appearance') || 'auto';
+                var palette = localStorage.getItem('al:palette') || 'standard';
+                function applyAppearance(mode) {
+                    if (mode === 'auto') {
+                        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        root.dataset.theme = dark ? 'dark' : 'light';
+                    } else {
+                        root.dataset.theme = mode;
+                    }
+                }
+                applyAppearance(appearance);
+                root.dataset.palette = palette;
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+                    if ((localStorage.getItem('al:appearance') || 'auto') === 'auto') applyAppearance('auto');
+                });
+            } catch (e) { /* localStorage indisponible */ }
+        })();
+    </script>
     <meta name="description" content="Apprends quelque chose de nouveau chaque jour." />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />

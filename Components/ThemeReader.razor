@@ -15,22 +15,8 @@
         <ArticleActions Title="@Article.Title" Description="@Article.Description"
                         Extract="@_teaser" Url="@Article.Url" ImageUrl="@Article.ImageUrl" />
 
-        <div class="tabs" role="tablist">
-            @for (var i = 0; i < _levels.Count; i++)
-            {
-                var index = i;
-                var level = _levels[i];
-                <button class="tab @(index == _selected ? "active" : null)"
-                        role="tab"
-                        @onclick="() => _selected = index">
-                    <span class="tab-label">@level.Label</span>
-                    <span class="tab-time">~@level.Minutes min</span>
-                </button>
-            }
-        </div>
-
         <div class="reader">
-            @foreach (var block in Blocks(_levels[_selected].Text))
+            @foreach (var block in Blocks(_levels[_expanded].Text))
             {
                 @if (block.IsHeading)
                 {
@@ -42,6 +28,25 @@
                 }
             }
         </div>
+
+        <div class="reader-controls">
+            @if (_expanded < _levels.Count - 1)
+            {
+                var next = _levels[_expanded + 1];
+                <button class="btn btn-outline" @onclick="Expand">
+                    @ExpandLabel(_expanded + 1) · ~@next.Minutes min ▾
+                </button>
+            }
+            else if (_levels.Count > 1)
+            {
+                <p class="reader-end">Tu as lu l'article complet 🎉</p>
+            }
+
+            @if (_expanded > 0)
+            {
+                <button class="link-btn" @onclick="Collapse">Replier ▴</button>
+            }
+        </div>
     </div>
 </article>
 
@@ -49,7 +54,7 @@
     [Parameter, EditorRequired] public Article Article { get; set; } = default!;
 
     private IReadOnlyList<ReadingLevel> _levels = Array.Empty<ReadingLevel>();
-    private int _selected;
+    private int _expanded;
     private string _teaser = "";
 
     private static readonly Regex HeadingRegex = new(@"^=+\s*(.+?)\s*=+$", RegexOptions.Compiled);
@@ -57,10 +62,20 @@
     protected override void OnParametersSet()
     {
         _levels = ReadingLevels.Build(Article.FullText);
-        if (_selected >= _levels.Count)
-            _selected = 0;
+        if (_expanded > _levels.Count - 1)
+            _expanded = _levels.Count - 1;
         _teaser = BuildTeaser(Article.FullText);
     }
+
+    private void Expand() => _expanded = Math.Min(_expanded + 1, _levels.Count - 1);
+    private void Collapse() => _expanded = 0;
+
+    // Libellé du bouton de dépliage selon le niveau cible.
+    private string ExpandLabel(int target) => target switch
+    {
+        1 => "Déplier la version détaillée",
+        _ => "Déplier la version complète",
+    };
 
     private static string BuildTeaser(string text)
     {
