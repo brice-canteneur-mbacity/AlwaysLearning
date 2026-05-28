@@ -15,36 +15,47 @@
         <ArticleActions Title="@Article.Title" Description="@Article.Description"
                         Extract="@_teaser" Url="@Article.Url" ImageUrl="@Article.ImageUrl" />
 
-        <div class="reader">
-            @foreach (var block in Blocks(_levels[_expanded].Text))
+        <div class="panel-strip" role="tablist">
+            @for (var i = 0; i < _panels.Count; i++)
             {
-                @if (block.IsHeading)
-                {
-                    <h3 class="reader-h">@block.Text</h3>
-                }
-                else
-                {
-                    <p class="reader-p">@block.Text</p>
-                }
+                var index = i;
+                var panel = _panels[i];
+                var open = _open.Contains(index);
+                <button class="strip-btn @(open ? "active" : null)"
+                        @onclick="() => Toggle(index)"
+                        aria-pressed="@(open ? "true" : "false")">
+                    <span class="strip-caret">@(open ? "▾" : "▸")</span>
+                    <span class="strip-label">@panel.Label</span>
+                    <span class="strip-time">~@panel.Minutes min</span>
+                </button>
             }
         </div>
 
-        <div class="reader-controls">
-            @if (_expanded < _levels.Count - 1)
+        <div class="panel-contents">
+            @for (var i = 0; i < _panels.Count; i++)
             {
-                var next = _levels[_expanded + 1];
-                <button class="btn btn-outline" @onclick="Expand">
-                    @ExpandLabel(_expanded + 1) · ~@next.Minutes min ▾
-                </button>
+                var index = i;
+                var panel = _panels[i];
+                if (!_open.Contains(index))
+                    continue;
+                <section class="panel-content">
+                    <h3 class="panel-section">@panel.Label</h3>
+                    @foreach (var block in Blocks(panel.Text))
+                    {
+                        @if (block.IsHeading)
+                        {
+                            <h4 class="reader-h">@block.Text</h4>
+                        }
+                        else
+                        {
+                            <p class="reader-p">@block.Text</p>
+                        }
+                    }
+                </section>
             }
-            else if (_levels.Count > 1)
+            @if (_open.Count == 0)
             {
-                <p class="reader-end">Tu as lu l'article complet 🎉</p>
-            }
-
-            @if (_expanded > 0)
-            {
-                <button class="link-btn" @onclick="Collapse">Replier ▴</button>
+                <p class="muted panel-empty">Touche un volet ci-dessus pour le déplier.</p>
             }
         </div>
     </div>
@@ -53,29 +64,23 @@
 @code {
     [Parameter, EditorRequired] public Article Article { get; set; } = default!;
 
-    private IReadOnlyList<ReadingLevel> _levels = Array.Empty<ReadingLevel>();
-    private int _expanded;
+    private IReadOnlyList<ReadingLevel> _panels = Array.Empty<ReadingLevel>();
+    private readonly HashSet<int> _open = new() { 0 };
     private string _teaser = "";
 
     private static readonly Regex HeadingRegex = new(@"^=+\s*(.+?)\s*=+$", RegexOptions.Compiled);
 
     protected override void OnParametersSet()
     {
-        _levels = ReadingLevels.Build(Article.FullText);
-        if (_expanded > _levels.Count - 1)
-            _expanded = _levels.Count - 1;
+        _panels = ReadingLevels.Build(Article.FullText);
         _teaser = BuildTeaser(Article.FullText);
     }
 
-    private void Expand() => _expanded = Math.Min(_expanded + 1, _levels.Count - 1);
-    private void Collapse() => _expanded = 0;
-
-    // Libellé du bouton de dépliage selon le niveau cible.
-    private string ExpandLabel(int target) => target switch
+    private void Toggle(int index)
     {
-        1 => "Déplier la version détaillée",
-        _ => "Déplier la version complète",
-    };
+        if (!_open.Add(index))
+            _open.Remove(index);
+    }
 
     private static string BuildTeaser(string text)
     {

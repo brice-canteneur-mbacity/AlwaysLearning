@@ -10,6 +10,10 @@ public sealed class WikipediaService
 {
     private const string ApiBase = "https://fr.wikipedia.org/w/api.php";
 
+    // Seuil minimal pour qu'un article ait assez de matière pour les trois niveaux
+    // de lecture (Court ≤ 500 mots, Détaillé ≤ 1500 mots, Complet > Détaillé).
+    private const int MinWords = 2000;
+
     // Propriétés communes demandées pour chaque page candidate.
     private const string PageProps =
         "&prop=extracts|pageimages|info|description|pageprops"
@@ -33,13 +37,16 @@ public sealed class WikipediaService
     {
         if (themeQueries is { Count: > 0 })
         {
-            var query = themeQueries[Random.Shared.Next(themeQueries.Count)];
-            var themed = await TryFetchAsync(BuildSearchUrl(query), ct);
-            if (themed is not null)
-                return themed;
+            for (var attempt = 0; attempt < 4; attempt++)
+            {
+                var query = themeQueries[Random.Shared.Next(themeQueries.Count)];
+                var themed = await TryFetchAsync(BuildSearchUrl(query), ct);
+                if (themed is not null)
+                    return themed;
+            }
         }
 
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < 6; attempt++)
         {
             var article = await TryFetchAsync(BuildRandomUrl(), ct);
             if (article is not null)
@@ -50,11 +57,11 @@ public sealed class WikipediaService
 
     private static string BuildRandomUrl()
         => ApiBase + "?action=query&format=json&origin=*"
-                   + "&generator=random&grnnamespace=0&grnlimit=6" + PageProps;
+                   + "&generator=random&grnnamespace=0&grnlimit=8" + PageProps;
 
     private static string BuildSearchUrl(string query)
         => ApiBase + "?action=query&format=json&origin=*"
-                   + "&generator=search&gsrnamespace=0&gsrsort=random&gsrlimit=6"
+                   + "&generator=search&gsrnamespace=0&gsrsort=random&gsrlimit=8"
                    + "&gsrsearch=" + Uri.EscapeDataString(query) + PageProps;
 
     private async Task<Article?> TryFetchAsync(string url, CancellationToken ct)
@@ -69,7 +76,8 @@ public sealed class WikipediaService
             var best = pages
                 .Where(p => !string.IsNullOrWhiteSpace(p.Title)
                             && !string.IsNullOrWhiteSpace(p.Extract)
-                            && !IsDisambiguation(p))
+                            && !IsDisambiguation(p)
+                            && CountWords(p.Extract!) >= MinWords)
                 .OrderByDescending(p => p.Extract!.Length)
                 .FirstOrDefault();
 
@@ -94,6 +102,9 @@ public sealed class WikipediaService
     private static bool IsDisambiguation(ActionPage page)
         => (page.PageProps is not null && page.PageProps.ContainsKey("disambiguation"))
            || (page.Description?.Contains("homonymie", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private static int CountWords(string s)
+        => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
     private sealed class ActionResponse
     {
