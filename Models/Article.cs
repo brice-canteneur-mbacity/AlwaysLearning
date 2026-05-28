@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace AlwaysLearning.Models;
@@ -15,7 +14,9 @@ public sealed class Article
 
 public sealed record ReadingLevel(string Label, string Text, int Words, int Minutes);
 
-// Découpe le texte d'un article en trois profondeurs de lecture cumulatives.
+// Découpe le texte d'un article en trois volets distincts : Court (intro),
+// Détaillé (sections suivantes), Complet (le reste). Chaque volet contient
+// uniquement sa portion propre, pour être affichés dans un accordéon.
 public static class ReadingLevels
 {
     private const int WordsPerMinute = 200;
@@ -29,35 +30,38 @@ public static class ReadingLevels
             .Where(p => p.Length > 0)
             .ToList();
 
-        var court = Truncate(paragraphs, CourtWords);
-        var moyen = Truncate(paragraphs, MoyenWords);
-        var full = string.Join("\n\n", paragraphs);
+        var (courtParas, rest1) = TakeUntil(paragraphs, CourtWords);
+        var courtWords = CountAll(courtParas);
+        var (detailParas, completParas) = TakeUntil(rest1, Math.Max(1, MoyenWords - courtWords));
 
-        var levels = new List<ReadingLevel> { Make("Court", court) };
-        if (moyen.Length > court.Length)
-            levels.Add(Make("Moyen", moyen));
-        if (full.Length > moyen.Length)
-            levels.Add(Make("Long", full));
+        var panels = new List<ReadingLevel>();
+        if (courtParas.Count > 0)
+            panels.Add(Make("Court", string.Join("\n\n", courtParas)));
+        if (detailParas.Count > 0)
+            panels.Add(Make("Détaillé", string.Join("\n\n", detailParas)));
+        if (completParas.Count > 0)
+            panels.Add(Make("Complet", string.Join("\n\n", completParas)));
+        if (panels.Count == 0)
+            panels.Add(Make("Article", fullText));
 
-        // Article court : un seul niveau, qu'on renomme pour ne pas afficher « Court » seul.
-        if (levels.Count == 1)
-            levels[0] = levels[0] with { Label = "Article" };
-
-        return levels;
+        return panels;
     }
 
-    private static string Truncate(List<string> paragraphs, int wordBudget)
+    // Avale des paragraphes jusqu'à atteindre le budget de mots, puis renvoie la suite.
+    private static (List<string> taken, List<string> rest) TakeUntil(List<string> paragraphs, int wordBudget)
     {
-        var sb = new StringBuilder();
+        var taken = new List<string>();
         var words = 0;
-        foreach (var p in paragraphs)
+        var i = 0;
+        while (i < paragraphs.Count)
         {
-            sb.Append(p).Append("\n\n");
-            words += CountWords(p);
+            taken.Add(paragraphs[i]);
+            words += CountWords(paragraphs[i]);
+            i++;
             if (words >= wordBudget)
                 break;
         }
-        return sb.ToString().Trim();
+        return (taken, paragraphs.Skip(i).ToList());
     }
 
     private static ReadingLevel Make(string label, string text)
@@ -69,4 +73,7 @@ public static class ReadingLevels
 
     private static int CountWords(string s)
         => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    private static int CountAll(IEnumerable<string> paragraphs)
+        => paragraphs.Sum(CountWords);
 }
