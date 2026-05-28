@@ -275,15 +275,6 @@ h1:focus { outline: none; }
 
 .panel-contents { padding-top: 6px; }
 .panel-content { padding: 14px 0 4px; }
-.panel-content + .panel-content { border-top: 1px dashed var(--border); }
-.panel-section {
-    margin: 0 0 12px;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: var(--accent-2);
-}
 .panel-empty { text-align: center; padding: 24px 0; }
 
 /* ---------- History ---------- */
